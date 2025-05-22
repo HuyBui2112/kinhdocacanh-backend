@@ -1,13 +1,14 @@
+import 'module-alias/register';
 import express, { Express } from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
-import { errorHandler, notFoundHandler } from './middlewares';
-import connectDB from './configs/database';
+import { errorHandler, notFoundHandler } from '@/middlewares';
+import connectDB from '@/configs/database';
 
 // Import routes
-import apiRoutes from './routes';
+import apiRoutes from '@/routes';
 
 // Load environment variables
 dotenv.config();

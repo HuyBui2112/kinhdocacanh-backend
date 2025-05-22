@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "Backend API for Kinh Do Ca Canh",
   "main": "dist/app.js",
+  "_moduleAliases": {
+    "@": "dist"
+  },
   "scripts": {
     "start": "node dist/app.js",
     "dev": "nodemon -r tsconfig-paths/register src/app.ts",
@@ -20,6 +23,7 @@
     "express": "^4.18.3",
     "helmet": "^7.1.0",
     "jsonwebtoken": "^9.0.2",
+    "module-alias": "^2.2.3",
     "mongoose": "^8.2.0",
     "morgan": "^1.10.0",
     "winston": "^3.12.0"

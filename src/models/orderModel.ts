@@ -1,5 +1,5 @@
 import mongoose, { Document, Schema, Types } from "mongoose";
-import { ICartItem } from "./cartModel"; // Sử dụng lại ICartItem từ cartModel
+import { ICartItem } from "@/models/cartModel"; // Sử dụng lại ICartItem từ cartModel
 
 /**
  * @interface IShippingAddress
