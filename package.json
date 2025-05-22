@@ -7,7 +7,7 @@
     "start": "node dist/app.js",
     "dev": "nodemon -r tsconfig-paths/register src/app.ts",
     "build": "rimraf dist && tsc",
-    "postbuild": "cp -r src/config dist/",
+    "postbuild": "copyfiles -u 1 src/config/**/* dist",
     "lint": "eslint . --ext .ts",
     "test": "jest"
   },
@@ -31,11 +31,12 @@
     "@types/node": "^20.17.46",
     "@typescript-eslint/eslint-plugin": "^7.1.0",
     "@typescript-eslint/parser": "^7.1.0",
+    "copyfiles": "^2.4.1",
     "eslint": "^8.57.0",
     "nodemon": "^3.1.0",
+    "rimraf": "^5.0.5",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
-    "typescript": "^5.3.3",
-    "rimraf": "^5.0.5"
+    "typescript": "^5.3.3"
   }
 }
