@@ -65,6 +65,7 @@ const CartSchema: Schema = new Schema(
       ref: "User",
       required: [true, "ID người dùng không được để trống"],
       unique: true, // Mỗi người dùng chỉ có một giỏ hàng
+      index: true, // Thêm index cho userId
     },
     items: [CartItemSchema],
   },
@@ -81,30 +82,48 @@ const CartSchema: Schema = new Schema(
 // Thêm middleware để kiểm tra userId không null trước khi lưu
 CartSchema.pre('save', function(next) {
   if (!this.userId) {
-    return next(new Error('userId không được phép là null hoặc undefined'));
+    next(new Error('userId không được phép là null hoặc undefined'));
+    return;
   }
   next();
 });
 
 // Thêm middleware để kiểm tra userId không null trước khi cập nhật
-CartSchema.pre('findOneAndUpdate', function(next) {
+CartSchema.pre(['updateOne', 'findOneAndUpdate'], function(next) {
   const update = this.getUpdate() as any;
-  if (update && update.userId === null) {
-    return next(new Error('userId không được phép cập nhật thành null hoặc undefined'));
+  if (update && (update.userId === null || update.userId === undefined)) {
+    next(new Error('userId không được phép cập nhật thành null hoặc undefined'));
+    return;
   }
   next();
 });
 
-// Thêm middleware để ngăn chặn việc tạo cart với userId trùng nhau
-CartSchema.pre('validate', async function(next) {
-  if (this.isNew && this.userId) {
-    const existingCart = await CartModel.findOne({ userId: this.userId });
-    if (existingCart) {
-      return next(new Error(`Đã tồn tại giỏ hàng cho userId: ${this.userId}`));
-    }
+// Thêm middleware để xử lý trường hợp duplicate key
+CartSchema.post('save', function(error: any, doc: any, next: any) {
+  if (error.name === 'MongoServerError' && error.code === 11000) {
+    next(new Error('Đã tồn tại giỏ hàng cho người dùng này'));
+  } else {
+    next(error);
   }
-  next();
 });
+
+// Xóa các giỏ hàng không hợp lệ khi khởi động
+CartSchema.statics.cleanupInvalidCarts = async function() {
+  try {
+    const result = await this.deleteMany({
+      $or: [
+        { userId: null },
+        { userId: undefined },
+        { userId: { $exists: false } }
+      ]
+    });
+    if (result.deletedCount > 0) {
+      console.log(`Đã xóa ${result.deletedCount} giỏ hàng không hợp lệ`);
+    }
+  } catch (error) {
+    console.error('Lỗi khi dọn dẹp giỏ hàng:', error);
+  }
+};
 
 /**
  * @class Cart
@@ -180,25 +199,28 @@ class Cart {
    */
   static async updateCart(userId: string, items: ICartItem[]): Promise<ICart | null> {
     try {
+      if (!userId) {
+        throw new Error('userId không được để trống');
+      }
+
       // Nếu items là một mảng rỗng, xóa hoàn toàn document thay vì cập nhật
       if (items.length === 0) {
         return this.clearCart(userId);
       }
 
-      // Kiểm tra xem giỏ hàng đã tồn tại chưa
-      const existingCart = await CartModel.findOne({ userId });
-      
-      if (existingCart) {
-        // Nếu giỏ hàng đã tồn tại, cập nhật items
-        return await CartModel.findOneAndUpdate(
-          { userId },
-          { items },
-          { new: true, runValidators: true }
-        );
-      } else {
-        // Nếu giỏ hàng chưa tồn tại, tạo mới với các sản phẩm được cung cấp
-        return await CartModel.create({ userId, items });
-      }
+      // Sử dụng findOneAndUpdate với upsert để tạo mới nếu chưa tồn tại
+      const updatedCart = await CartModel.findOneAndUpdate(
+        { userId },
+        { $set: { items } },
+        { 
+          new: true, 
+          runValidators: true,
+          upsert: true, // Tạo mới nếu chưa tồn tại
+          setDefaultsOnInsert: true // Áp dụng giá trị mặc định khi tạo mới
+        }
+      );
+
+      return updatedCart;
     } catch (error) {
       console.error('Lỗi khi cập nhật giỏ hàng:', error);
       // Xử lý các lỗi validate cụ thể
@@ -221,6 +243,9 @@ class Cart {
    */
   static async clearCart(userId: string): Promise<ICart | null> {
     try {
+      if (!userId) {
+        throw new Error('userId không được để trống');
+      }
       // Thay vì cập nhật items thành mảng rỗng, ta xóa hoàn toàn document
       await CartModel.deleteOne({ userId });
       return null;
